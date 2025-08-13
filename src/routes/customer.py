@@ -54,11 +54,29 @@ def get_customers():
         )
         
         # Optimize serialization - don't include all contracts by default
+        # Instead provide lightweight aggregates for UI columns
         customer_list = []
         for customer in customers.items:
             customer_dict = customer.to_dict()
-            # Remove contracts from response to reduce payload size
+            # Remove heavy contracts array
             customer_dict.pop('contracts', None)
+
+            # Aggregate contract info
+            cust_contracts = Contract.query.filter_by(customer_id=customer.customer_id).all()
+            contract_count = len(cust_contracts)
+            active_contracts_count = len([
+                c for c in cust_contracts if c.status in ('Khách book', 'Khách đã thanh toán')
+            ])
+
+            customer_dict['contract_count'] = contract_count
+            customer_dict['active_contracts_count'] = active_contracts_count
+            if contract_count == 0:
+                customer_dict['status_summary'] = 'No Contracts'
+            elif active_contracts_count > 0:
+                customer_dict['status_summary'] = 'Active'
+            else:
+                customer_dict['status_summary'] = 'Inactive'
+
             customer_list.append(customer_dict)
         
         return jsonify({
