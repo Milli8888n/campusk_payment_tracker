@@ -130,7 +130,7 @@ def get_rooms():
         )
         
         return jsonify({
-            'rooms': [room.to_dict(include_bookings=False, include_branch=True) for room in rooms.items],
+            'rooms': [room.to_dict(include_bookings=True, include_branch=True) for room in rooms.items],
             'total': rooms.total,
             'pages': rooms.pages,
             'current_page': page,
