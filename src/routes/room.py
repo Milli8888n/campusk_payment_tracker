@@ -100,6 +100,7 @@ def get_rooms():
         per_page = min(request.args.get('per_page', 10, type=int), 100)  # Limit max 100
         branch_id = request.args.get('branch_id', type=int)
         status = request.args.get('status', '')
+        room_type = request.args.get('room_type', '')
         search = request.args.get('search', '')
         
         query = Room.query
@@ -109,10 +110,17 @@ def get_rooms():
             query = query.filter_by(branch_id=branch_id)
             
         if status:
-            if status == 'available':
-                query = query.filter(Room.is_available == True)
-            elif status == 'occupied':
-                query = query.filter(Room.is_available == False)
+            # support legacy and new statuses
+            if status in ['available', 'occupied']:
+                if status == 'available':
+                    query = query.filter(Room.is_available == True)
+                else:
+                    query = query.filter(Room.is_available == False)
+            else:
+                query = query.filter(Room.status == status)
+        
+        if room_type:
+            query = query.filter(Room.room_type == room_type)
         
         if search:
             query = query.filter(

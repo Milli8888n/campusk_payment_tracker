@@ -40,6 +40,7 @@ class Room(db.Model):
     room_id = db.Column(db.Integer, primary_key=True)
     branch_id = db.Column(db.Integer, db.ForeignKey('branches.branch_id'), nullable=False)
     room_number = db.Column(db.String(50), nullable=False)
+    room_type = db.Column(db.String(100))
     area = db.Column(db.Numeric(10, 2))  # in square meters
     orientation = db.Column(db.String(100))  # e.g., "North", "South-East"
     rental_price = db.Column(db.Numeric(18, 2), nullable=False)
@@ -47,6 +48,7 @@ class Room(db.Model):
     amenities = db.Column(db.Text)  # JSON string of amenities
     notes = db.Column(db.Text)
     is_available = db.Column(db.Boolean, default=True)
+    status = db.Column(db.String(50), default='available')  # available|occupied|maintenance|closed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -61,6 +63,7 @@ class Room(db.Model):
             'room_id': self.room_id,
             'branch_id': self.branch_id,
             'room_number': self.room_number,
+            'room_type': self.room_type,
             'area': float(self.area) if self.area else None,
             'orientation': self.orientation,
             'rental_price': float(self.rental_price),
@@ -68,6 +71,7 @@ class Room(db.Model):
             'amenities': self.amenities,
             'notes': self.notes,
             'is_available': self.is_available,
+            'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
