@@ -300,17 +300,32 @@ class ContractGenerator:
         } 
 
     def prepare_payment_request_data(self, customer_data, contract_data):
-        """Chuẩn bị dữ liệu cho payment request - chỉ sử dụng 11 trường Jinja thực sự cần thiết"""
-        contract_value = float(contract_data.get('contract_value', 0))
+        """Chuẩn bị dữ liệu cho payment request - chỉ sử dụng 11 trường Jinja thực sự cần thiết
+        - Tổng tiền thuê (theo yêu cầu): (đơn giá × số lượng) + VAT − tiền đặt cọc
+        - Sử dụng Decimal để tránh sai số float và format VND với 2 chữ số thập phân
+        """
+        # Lấy giá trị hợp đồng (đơn giá tháng)
+        raw_contract_value = contract_data.get('contract_value', 0) if contract_data else 0
+        # Dùng Decimal để tránh sai số
+        monthly_price = Decimal(str(raw_contract_value))
         
-        # Tính toán các khoản tiền
-        service_amount = contract_value * 12
-        vat_amount = service_amount * 0.1
-        deposit_amount = contract_value * 2
-        total_amount = service_amount + vat_amount
+        # Tham số
+        quantity = Decimal('12')
+        deposit_months = Decimal('2')
+        vat_rate = Decimal('0.10')
         
-        # Chuyển đổi số tiền thành chữ
-        amount_in_words = self.number_to_words(total_amount)
+        # Tính toán
+        service_amount = (monthly_price * quantity)                 # đơn giá × số lượng
+        vat_amount = (service_amount * vat_rate)                     # VAT
+        deposit_amount = (monthly_price * deposit_months)            # tiền đặt cọc
+        payable_total = (service_amount + vat_amount - deposit_amount)  # theo yêu cầu
+        
+        # Hàm format VND với 2 chữ số thập phân
+        def format_vnd(value: Decimal) -> str:
+            return format(value.quantize(Decimal('0.01')), ',.2f')
+        
+        # Viết bằng chữ theo tổng phải thanh toán
+        amount_in_words = self.number_to_words(float(payable_total))
         
         return {
             # Chỉ 11 trường Jinja thực sự được sử dụng trong template
@@ -318,12 +333,13 @@ class ContractGenerator:
             'address': customer_data.get('company_name') or 'N/A',  # Sử dụng company_name thay cho address
             'service_name': 'Tiền thuê văn phòng dịch vụ',
             'service_unit': 'Tháng',
-            'service_quantity': '12',
-            'service_unit_price': f"{contract_value:,}",
-            'service_amount': f"{service_amount:,}",
-            'vat_amount': f"{vat_amount:,}",
-            'deposit_amount': f"{deposit_amount:,}",
-            'total_rental_amount': f"{total_amount:,}",
+            'service_quantity': str(int(quantity)),
+            'service_unit_price': format_vnd(monthly_price),
+            'service_amount': format_vnd(service_amount),
+            'vat_amount': format_vnd(vat_amount),
+            'deposit_amount': format_vnd(deposit_amount),
+            # Trường đang được template dùng để hiển thị tổng → ánh xạ theo công thức yêu cầu
+            'total_rental_amount': format_vnd(payable_total),
             'amount_in_words': amount_in_words
         }
     
