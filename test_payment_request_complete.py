@@ -10,31 +10,22 @@ from decimal import Decimal
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 def number_to_words_vietnamese(number):
-    """Chuyển đổi số thành chữ tiếng Việt"""
-    
-    # Làm tròn số
-    rounded_number = round(number)
-    
-    # Định nghĩa các từ số
+    """Chuyển số thành chữ tiếng Việt"""
     units = ["", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"]
     teens = ["mười", "mười một", "mười hai", "mười ba", "mười bốn", "mười lăm", "mười sáu", "mười bảy", "mười tám", "mười chín"]
     tens = ["", "", "hai mươi", "ba mươi", "bốn mươi", "năm mươi", "sáu mươi", "bảy mươi", "tám mươi", "chín mươi"]
     
     def convert_less_than_one_thousand(n):
-        """Chuyển đổi số nhỏ hơn 1000"""
         if n == 0:
             return ""
-        elif n < 10:
+        
+        if n < 10:
             return units[n]
         elif n < 20:
             return teens[n - 10]
         elif n < 100:
             if n % 10 == 0:
                 return tens[n // 10]
-            elif n % 10 == 1:
-                return tens[n // 10] + " mốt"
-            elif n % 10 == 5:
-                return tens[n // 10] + " lăm"
             else:
                 return tens[n // 10] + " " + units[n % 10]
         else:
@@ -43,62 +34,54 @@ def number_to_words_vietnamese(number):
             else:
                 return units[n // 100] + " trăm " + convert_less_than_one_thousand(n % 100)
     
-    def convert_number(n):
-        """Chuyển đổi số thành chữ"""
-        if n == 0:
-            return "không"
-        
-        # Chia thành các nhóm 3 chữ số
-        groups = []
-        temp = n
-        while temp > 0:
-            groups.append(temp % 1000)
-            temp //= 1000
-        
-        # Chuyển đổi từng nhóm
-        words = []
-        for i, group in enumerate(reversed(groups)):
-            if group == 0:
-                continue
-            
-            group_words = convert_less_than_one_thousand(group)
-            
-            if i == 0:  # Nhóm cuối
-                words.append(group_words)
-            elif i == 1:  # Nhóm nghìn
-                if group == 1:
-                    words.append("nghìn")
-                else:
-                    words.append(group_words + " nghìn")
-            elif i == 2:  # Nhóm triệu
-                if group == 1:
-                    words.append("triệu")
-                else:
-                    words.append(group_words + " triệu")
-            elif i == 3:  # Nhóm tỷ
-                if group == 1:
-                    words.append("tỷ")
-                else:
-                    words.append(group_words + " tỷ")
-            elif i == 4:  # Nhóm nghìn tỷ
-                if group == 1:
-                    words.append("nghìn tỷ")
-                else:
-                    words.append(group_words + " nghìn tỷ")
-        
-        return " ".join(words)
+    if number == 0:
+        return "không đồng"
     
-    # Chuyển đổi số
-    words = convert_number(rounded_number)
+    # Xử lý phần nguyên
+    integer_part = int(number)
+    decimal_part = int((number - integer_part) * 100)
+    
+    if integer_part == 0:
+        result = "không"
+    else:
+        result = ""
+        
+        # Xử lý hàng tỷ
+        billions = integer_part // 1000000000
+        if billions > 0:
+            result += convert_less_than_one_thousand(billions) + " tỷ "
+            integer_part %= 1000000000
+        
+        # Xử lý hàng triệu
+        millions = integer_part // 1000000
+        if millions > 0:
+            result += convert_less_than_one_thousand(millions) + " triệu "
+            integer_part %= 1000000
+        
+        # Xử lý hàng nghìn
+        thousands = integer_part // 1000
+        if thousands > 0:
+            result += convert_less_than_one_thousand(thousands) + " nghìn "
+            integer_part %= 1000
+        
+        # Xử lý phần còn lại
+        if integer_part > 0:
+            result += convert_less_than_one_thousand(integer_part)
+    
+    # Xử lý phần thập phân
+    if decimal_part > 0:
+        result += " phẩy " + convert_less_than_one_thousand(decimal_part)
     
     # Thêm "đồng" vào cuối
-    return words + " đồng"
-
-def create_payment_request_with_words():
-    """Tạo Payment Request với số tiền bằng chữ được convert đúng"""
+    result += " đồng"
     
-    print("🚀 Tạo Payment Request với số tiền bằng chữ")
-    print("=" * 60)
+    return result.strip()
+
+def test_payment_request_complete():
+    """Test tạo Payment Request với đầy đủ các trường Jinja"""
+    
+    print("🚀 Test tạo Payment Request với đầy đủ các trường Jinja")
+    print("=" * 70)
     
     try:
         from src.main import app
@@ -127,6 +110,7 @@ def create_payment_request_with_words():
             # Tính toán các khoản tiền
             service_amount = float(contract.contract_value) * 12
             vat_amount = service_amount * 0.1
+            deposit_amount = float(contract.contract_value) * 2
             total_amount = service_amount + vat_amount
             
             # Chuyển đổi số tiền thành chữ
@@ -134,6 +118,7 @@ def create_payment_request_with_words():
             
             print(f"✅ Service Amount: {service_amount:,} VND")
             print(f"✅ VAT Amount: {vat_amount:,} VND")
+            print(f"✅ Deposit Amount: {deposit_amount:,} VND")
             print(f"✅ Total Amount: {total_amount:,} VND")
             print(f"✅ Amount in Words: {amount_in_words}")
             
@@ -142,11 +127,11 @@ def create_payment_request_with_words():
             
             # Tạo payment request
             payment_request = PaymentRequest(
+                payment_request_number=payment_request_number,
                 customer_id=customer.customer_id,
                 contract_id=contract.contract_id,
-                payment_request_number=payment_request_number,
-                issue_date=date.today(),
-                due_date=date.today() + timedelta(days=15),
+                issue_date=datetime.now(),
+                due_date=datetime.now() + timedelta(days=30),
                 service_name='Tiền thuê văn phòng dịch vụ',
                 service_unit='Tháng',
                 service_quantity=12,
@@ -154,11 +139,11 @@ def create_payment_request_with_words():
                 service_amount=service_amount,
                 vat_percentage=10.0,
                 vat_amount=vat_amount,
-                deposit_amount=0,
+                deposit_amount=deposit_amount,
                 total_rental_amount=total_amount,
                 amount_in_words=amount_in_words,
                 status='pending',
-                notes='Payment request với số tiền bằng chữ được convert đúng'
+                notes='Payment request với đầy đủ các trường Jinja'
             )
             
             # Lưu vào database
@@ -169,7 +154,7 @@ def create_payment_request_with_words():
             print(f"   Payment Request ID: {payment_request.payment_request_id}")
             print(f"   Payment Request Number: {payment_request.payment_request_number}")
             
-            # Chuẩn bị dữ liệu cho template
+            # Chuẩn bị dữ liệu cho template với đầy đủ các trường
             template_data = {
                 # Thông tin khách hàng
                 'customer_name': customer.customer_name,
@@ -210,12 +195,10 @@ def create_payment_request_with_words():
                 'to_date': contract.contract_end_date.strftime('%d/%m/%Y')
             }
             
-            print("\n📊 Dữ liệu cho template:")
+            print("\n📊 Dữ liệu đầy đủ cho template:")
+            print("=" * 50)
             for key, value in template_data.items():
-                if key == 'amount_in_words':
-                    print(f"   {key}: {value}")
-                else:
-                    print(f"   {key}: {value}")
+                print(f"   {key}: {value}")
             
             # Render template
             template_path = "templates_jinja/6.1_payment_request_jinja.docx"
@@ -225,7 +208,7 @@ def create_payment_request_with_words():
                 doc = DocxTemplate(template_path)
                 doc.render(template_data)
                 
-                output_path = f"payment_request_with_words_{payment_request.payment_request_number}.docx"
+                output_path = f"payment_request_complete_{payment_request.payment_request_number}.docx"
                 doc.save(output_path)
                 
                 print(f"✅ Payment Request đã được tạo thành công!")
@@ -233,6 +216,13 @@ def create_payment_request_with_words():
                 print(f"📊 Payment Request ID: {payment_request.payment_request_id}")
                 print(f"💰 Total Amount: {payment_request.total_rental_amount:,} VND")
                 print(f"📝 Amount in Words: {payment_request.amount_in_words}")
+                
+                # Kiểm tra file đã tạo
+                if os.path.exists(output_path):
+                    file_size = os.path.getsize(output_path)
+                    print(f"📁 File size: {file_size:,} bytes")
+                else:
+                    print("❌ File không được tạo thành công")
                 
             else:
                 print(f"❌ Template không tồn tại: {template_path}")
@@ -242,41 +232,5 @@ def create_payment_request_with_words():
         import traceback
         traceback.print_exc()
 
-def test_number_conversion():
-    """Test chuyển đổi số thành chữ"""
-    
-    test_numbers = [
-        431161473.60,
-        216324094.80,
-        416314932.00,
-        1000000,
-        5000000,
-        10000000
-    ]
-    
-    print("🧪 Test chuyển đổi số thành chữ:")
-    print("=" * 50)
-    
-    for number in test_numbers:
-        words = number_to_words_vietnamese(number)
-        print(f"{number:15,.0f} -> {words}")
-
-def main():
-    """Main function"""
-    print("🚀 Tạo Payment Request với số tiền bằng chữ")
-    print("=" * 60)
-    
-    # Test chuyển đổi số
-    test_number_conversion()
-    
-    # Tạo payment request
-    create_payment_request_with_words()
-    
-    print("\n✅ Hoàn thành tạo Payment Request với số tiền bằng chữ!")
-    print("\n📋 Tóm tắt:")
-    print("   - Số tiền đã được chuyển đổi thành chữ tiếng Việt")
-    print("   - Payment Request đã được tạo với dữ liệu chính xác")
-    print("   - File Word đã được tạo với số tiền bằng chữ đúng")
-
 if __name__ == "__main__":
-    main() 
+    test_payment_request_complete() 

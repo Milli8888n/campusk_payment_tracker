@@ -138,3 +138,59 @@ class Alert(db.Model):
             'contract': self.contract.to_dict() if self.contract else None
         }
 
+
+class PaymentRequest(db.Model):
+    __tablename__ = 'payment_requests'
+    
+    payment_request_id = db.Column(db.Integer, primary_key=True)
+    payment_request_number = db.Column(db.String(50), unique=True, nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.customer_id'), nullable=False)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contracts.contract_id'), nullable=False)
+    issue_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    due_date = db.Column(db.DateTime, nullable=False)
+    service_name = db.Column(db.String(255), nullable=False)
+    service_unit = db.Column(db.String(50), nullable=False)
+    service_quantity = db.Column(db.Integer, nullable=False)
+    service_unit_price = db.Column(db.Numeric(18, 2), nullable=False)
+    service_amount = db.Column(db.Numeric(18, 2), nullable=False)
+    vat_percentage = db.Column(db.Numeric(5, 2), default=10.0)
+    vat_amount = db.Column(db.Numeric(18, 2), nullable=False)
+    deposit_amount = db.Column(db.Numeric(18, 2), default=0)
+    total_rental_amount = db.Column(db.Numeric(18, 2), nullable=False)
+    amount_in_words = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(50), default='pending')
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    customer = db.relationship('Customer', backref='payment_requests')
+    contract = db.relationship('Contract', backref='payment_requests')
+    
+    def __repr__(self):
+        return f'<PaymentRequest {self.payment_request_number}>'
+    
+    def to_dict(self):
+        return {
+            'payment_request_id': self.payment_request_id,
+            'payment_request_number': self.payment_request_number,
+            'customer_id': self.customer_id,
+            'contract_id': self.contract_id,
+            'issue_date': self.issue_date.isoformat() if self.issue_date else None,
+            'due_date': self.due_date.isoformat() if self.due_date else None,
+            'service_name': self.service_name,
+            'service_unit': self.service_unit,
+            'service_quantity': self.service_quantity,
+            'service_unit_price': float(self.service_unit_price),
+            'service_amount': float(self.service_amount),
+            'vat_percentage': float(self.vat_percentage),
+            'vat_amount': float(self.vat_amount),
+            'deposit_amount': float(self.deposit_amount),
+            'total_rental_amount': float(self.total_rental_amount),
+            'amount_in_words': self.amount_in_words,
+            'status': self.status,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
