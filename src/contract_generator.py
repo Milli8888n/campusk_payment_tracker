@@ -428,3 +428,58 @@ class ContractGenerator:
         result += " đồng"
         
         return result.strip()
+
+    def generate_contract_bytes(self, contract_type, customer_id, contract_id=None, booking_id=None, output_filename=None):
+        """Tạo hợp đồng và trả về file-like bytes thay vì lưu ra đĩa"""
+        from io import BytesIO
+        try:
+            # Kiểm tra loại hợp đồng
+            if contract_type not in self.CONTRACT_TEMPLATES:
+                raise ValueError(f"Unsupported contract type: {contract_type}")
+
+            template_config = self.CONTRACT_TEMPLATES[contract_type]
+            template_path = os.path.join(self.template_dir, template_config["template_path"])
+            if not os.path.exists(template_path):
+                raise FileNotFoundError(f"Template file not found: {template_path}")
+
+            # Lấy dữ liệu
+            customer_data = self.get_customer_data(customer_id)
+            contract_data = self.get_contract_data(contract_id) if contract_id else None
+            if contract_type == "payment_request" and not contract_data:
+                latest_contract = (
+                    Contract.query
+                    .filter_by(customer_id=customer_id)
+                    .order_by(Contract.contract_start_date.desc())
+                    .first()
+                )
+                if latest_contract:
+                    contract_data = latest_contract.to_dict()
+                else:
+                    raise ValueError("No contract found for customer; please select a contract")
+            booking_data = None
+
+            # Chuẩn bị context
+            if contract_type == "payment_request":
+                context = self.prepare_payment_request_data(customer_data, contract_data)
+            else:
+                context = self.prepare_contract_data(customer_data, contract_data, booking_data)
+
+            # Render ra bộ nhớ
+            doc = DocxTemplate(template_path)
+            doc.render(context)
+            if not output_filename:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                customer_name = customer_data.get("customer_name", "unknown").replace(" ", "_")
+                output_filename = f"{contract_type}_{customer_name}_{timestamp}.docx"
+            mem = BytesIO()
+            doc.save(mem)
+            mem.seek(0)
+            return {
+                "success": True,
+                "fileobj": mem,
+                "filename": output_filename,
+                "contract_type": contract_type,
+                "customer_name": customer_data.get("customer_name")
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e), "contract_type": contract_type}

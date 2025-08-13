@@ -57,6 +57,46 @@ def generate_contract():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@contract_bp.route('/contracts/generate-download', methods=['POST'])
+def generate_contract_download():
+    """Tạo hợp đồng và trả file .docx trực tiếp (không lưu server)"""
+    try:
+        data = request.get_json()
+
+        # Validate required fields
+        if 'contract_type' not in data or 'customer_id' not in data:
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        contract_type = data['contract_type']
+        customer_id = data['customer_id']
+        contract_id = data.get('contract_id')
+        booking_id = data.get('booking_id')
+        output_filename = data.get('output_filename')
+
+        # Tạo hợp đồng ra bộ nhớ
+        result = contract_generator.generate_contract_bytes(
+            contract_type=contract_type,
+            customer_id=customer_id,
+            contract_id=contract_id,
+            booking_id=booking_id,
+            output_filename=output_filename
+        )
+
+        if not result['success']:
+            return jsonify({'error': 'Failed to generate contract', 'details': result.get('error')}), 500
+
+        fileobj = result['fileobj']
+        filename = result['filename']
+
+        return send_file(
+            fileobj,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @contract_bp.route('/contracts/generate-multiple', methods=['POST'])
 def generate_multiple_contracts():
     """Tạo nhiều hợp đồng cùng lúc"""
