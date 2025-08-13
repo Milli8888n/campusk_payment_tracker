@@ -195,8 +195,23 @@ def get_contracts():
             page=page, per_page=per_page, error_out=False
         )
         
+        contracts_list = []
+        for contract in contracts.items:
+            item = contract.to_dict()
+            try:
+                cust = Customer.query.get(contract.customer_id)
+                if cust:
+                    item['customer'] = {
+                        'customer_id': cust.customer_id,
+                        'customer_name': cust.customer_name,
+                        'company_name': cust.company_name
+                    }
+            except Exception:
+                pass
+            contracts_list.append(item)
+
         return jsonify({
-            'contracts': [contract.to_dict() for contract in contracts.items],
+            'contracts': contracts_list,
             'total': contracts.total,
             'pages': contracts.pages,
             'current_page': page
