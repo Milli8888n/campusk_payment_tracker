@@ -214,6 +214,18 @@ class ContractGenerator:
             # Lấy dữ liệu
             customer_data = self.get_customer_data(customer_id)
             contract_data = self.get_contract_data(contract_id) if contract_id else None
+            # Fallback: nếu tạo payment_request mà không truyền contract_id hoặc không tìm thấy, lấy hợp đồng gần nhất của khách hàng
+            if contract_type == "payment_request" and not contract_data:
+                latest_contract = (
+                    Contract.query
+                    .filter_by(customer_id=customer_id)
+                    .order_by(Contract.contract_start_date.desc())
+                    .first()
+                )
+                if latest_contract:
+                    contract_data = latest_contract.to_dict()
+                else:
+                    raise ValueError("No contract found for customer; please select a contract")
             booking_data = self.get_room_booking_data(booking_id) if booking_id else None
             
             # Chuẩn bị context cho template - sử dụng method phù hợp với loại contract
@@ -241,6 +253,7 @@ class ContractGenerator:
                 "success": True,
                 "output_path": output_path,
                 "filename": output_filename,
+                "output_filename": output_filename,
                 "contract_type": contract_type,
                 "customer_name": customer_data.get("customer_name")
             }
@@ -363,10 +376,15 @@ class ContractGenerator:
                 else:
                     return tens[n // 10] + " " + units[n % 10]
             else:
-                if n % 100 == 0:
-                    return units[n // 100] + " trăm"
+                # Kiểm tra bounds để tránh index out of range
+                hundreds_digit = n // 100
+                if hundreds_digit >= 10:  # Nếu hàng trăm >= 10, xử lý đặc biệt
+                    return convert_less_than_one_thousand(hundreds_digit) + " trăm " + convert_less_than_one_thousand(n % 100)
                 else:
-                    return units[n // 100] + " trăm " + convert_less_than_one_thousand(n % 100)
+                    if n % 100 == 0:
+                        return units[hundreds_digit] + " trăm"
+                    else:
+                        return units[hundreds_digit] + " trăm " + convert_less_than_one_thousand(n % 100)
         
         if number == 0:
             return "không đồng"
