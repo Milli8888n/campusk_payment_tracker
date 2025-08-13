@@ -312,6 +312,12 @@ def get_upcoming_alerts():
         enriched = []
         for alert in alerts:
             item = alert.to_dict()
+            # Chuẩn hóa alert_date về dạng YYYY-MM-DD (tránh lệch timezone ở frontend)
+            if item.get('alert_date'):
+                try:
+                    item['alert_date'] = str(item['alert_date']).split('T')[0]
+                except Exception:
+                    pass
             # Bổ sung thông tin customer tối thiểu cho contract
             try:
                 contract = Contract.query.get(alert.contract_id)
