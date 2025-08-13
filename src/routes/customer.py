@@ -309,7 +309,28 @@ def get_upcoming_alerts():
             Alert.is_sent == False
         ).order_by(Alert.alert_date).all()
         
-        return jsonify([alert.to_dict() for alert in alerts])
+        enriched = []
+        for alert in alerts:
+            item = alert.to_dict()
+            # Bổ sung thông tin customer tối thiểu cho contract
+            try:
+                contract = Contract.query.get(alert.contract_id)
+                if contract:
+                    cust = Customer.query.get(contract.customer_id)
+                    contract_dict = contract.to_dict()
+                    if cust:
+                        contract_dict['customer'] = {
+                            'customer_id': cust.customer_id,
+                            'customer_name': cust.customer_name,
+                            'company_name': cust.company_name,
+                            'email': cust.email
+                        }
+                    item['contract'] = contract_dict
+            except Exception:
+                pass
+            enriched.append(item)
+
+        return jsonify(enriched)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
