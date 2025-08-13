@@ -216,8 +216,11 @@ class ContractGenerator:
             contract_data = self.get_contract_data(contract_id) if contract_id else None
             booking_data = self.get_room_booking_data(booking_id) if booking_id else None
             
-            # Chuẩn bị context cho template
-            context = self.prepare_contract_data(customer_data, contract_data, booking_data)
+            # Chuẩn bị context cho template - sử dụng method phù hợp với loại contract
+            if contract_type == "payment_request":
+                context = self.prepare_payment_request_data(customer_data, contract_data)
+            else:
+                context = self.prepare_contract_data(customer_data, contract_data, booking_data)
             
             # Tạo hợp đồng từ template
             doc = DocxTemplate(template_path)
@@ -297,47 +300,97 @@ class ContractGenerator:
         } 
 
     def prepare_payment_request_data(self, customer_data, contract_data):
-        """Chuẩn bị dữ liệu cho payment request"""
+        """Chuẩn bị dữ liệu cho payment request - chỉ sử dụng 11 trường Jinja thực sự cần thiết"""
         contract_value = float(contract_data.get('contract_value', 0))
         
+        # Tính toán các khoản tiền
+        service_amount = contract_value * 12
+        vat_amount = service_amount * 0.1
+        deposit_amount = contract_value * 2
+        total_amount = service_amount + vat_amount
+        
+        # Chuyển đổi số tiền thành chữ
+        amount_in_words = self.number_to_words(total_amount)
+        
         return {
-            # Thông tin khách hàng
+            # Chỉ 11 trường Jinja thực sự được sử dụng trong template
             'customer_name': customer_data.get('customer_name'),
-            'address': customer_data.get('address'),
-            'tax_id': customer_data.get('tax_id'),
-            'representative': customer_data.get('representative'),
-            'position': customer_data.get('position'),
-            'mobile': customer_data.get('mobile'),
-            
-            # Thông tin dịch vụ
+            'address': customer_data.get('company_name') or 'N/A',  # Sử dụng company_name thay cho address
             'service_name': 'Tiền thuê văn phòng dịch vụ',
             'service_unit': 'Tháng',
             'service_quantity': '12',
             'service_unit_price': f"{contract_value:,}",
-            'service_amount': f"{contract_value * 12:,}",
-            
-            # Thông tin đặt cọc
-            'deposit_service_name': 'Tiền đặt cọc Deposit',
-            'deposit_unit': 'Tháng Month',
-            'deposit_quantity': '2',
-            'deposit_unit_price': f"{contract_value:,}",
-            'deposit_amount': f"{contract_value * 2:,}",
-            
-            # Thông tin tổng hợp
-            'total_rental_amount': f"{contract_value * 14:,}",
-            'vat_amount': f"{contract_value * 14 * 0.1:,}",
-            'total_amount': f"{contract_value * 14 * 1.1:,}",
-            'amount_in_words': self.number_to_words(contract_value * 14 * 1.1),
-            
-            # Thông tin thời gian
-            'payment_due_date': '15/12/2026',
-            'contract_period': '12 tháng',
-            'from_date': contract_data.get('contract_start_date'),
-            'to_date': contract_data.get('contract_end_date')
+            'service_amount': f"{service_amount:,}",
+            'vat_amount': f"{vat_amount:,}",
+            'deposit_amount': f"{deposit_amount:,}",
+            'total_rental_amount': f"{total_amount:,}",
+            'amount_in_words': amount_in_words
         }
     
     def number_to_words(self, number):
         """Chuyển số thành chữ tiếng Việt"""
-        # Implement number to words conversion
-        # Có thể sử dụng thư viện như num2words hoặc tự implement
-        return f"{number:,.0f} đồng"
+        units = ["", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"]
+        teens = ["mười", "mười một", "mười hai", "mười ba", "mười bốn", "mười lăm", "mười sáu", "mười bảy", "mười tám", "mười chín"]
+        tens = ["", "", "hai mươi", "ba mươi", "bốn mươi", "năm mươi", "sáu mươi", "bảy mươi", "tám mươi", "chín mươi"]
+        
+        def convert_less_than_one_thousand(n):
+            if n == 0:
+                return ""
+            
+            if n < 10:
+                return units[n]
+            elif n < 20:
+                return teens[n - 10]
+            elif n < 100:
+                if n % 10 == 0:
+                    return tens[n // 10]
+                else:
+                    return tens[n // 10] + " " + units[n % 10]
+            else:
+                if n % 100 == 0:
+                    return units[n // 100] + " trăm"
+                else:
+                    return units[n // 100] + " trăm " + convert_less_than_one_thousand(n % 100)
+        
+        if number == 0:
+            return "không đồng"
+        
+        # Xử lý phần nguyên
+        integer_part = int(number)
+        decimal_part = int((number - integer_part) * 100)
+        
+        if integer_part == 0:
+            result = "không"
+        else:
+            result = ""
+            
+            # Xử lý hàng tỷ
+            billions = integer_part // 1000000000
+            if billions > 0:
+                result += convert_less_than_one_thousand(billions) + " tỷ "
+                integer_part %= 1000000000
+            
+            # Xử lý hàng triệu
+            millions = integer_part // 1000000
+            if millions > 0:
+                result += convert_less_than_one_thousand(millions) + " triệu "
+                integer_part %= 1000000
+            
+            # Xử lý hàng nghìn
+            thousands = integer_part // 1000
+            if thousands > 0:
+                result += convert_less_than_one_thousand(thousands) + " nghìn "
+                integer_part %= 1000
+            
+            # Xử lý phần còn lại
+            if integer_part > 0:
+                result += convert_less_than_one_thousand(integer_part)
+        
+        # Xử lý phần thập phân
+        if decimal_part > 0:
+            result += " phẩy " + convert_less_than_one_thousand(decimal_part)
+        
+        # Thêm "đồng" vào cuối
+        result += " đồng"
+        
+        return result.strip()
