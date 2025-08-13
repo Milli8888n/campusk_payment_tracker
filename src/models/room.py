@@ -132,9 +132,9 @@ class RoomBooking(db.Model):
             result['customer'] = {
                 'customer_id': self.customer.customer_id,
                 'customer_name': self.customer.customer_name,
-                'customer_email': self.customer.customer_email,
-                'customer_phone': self.customer.customer_phone,
-                'customer_type': self.customer.customer_type
+                'email': getattr(self.customer, 'email', None),
+                'mobile': getattr(self.customer, 'mobile', None),
+                'company_name': getattr(self.customer, 'company_name', None)
             }
         if include_room and self.room:
             result['room'] = self.room.to_dict(include_bookings=False, include_branch=False)
