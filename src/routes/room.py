@@ -12,9 +12,18 @@ room_bp = Blueprint('room', __name__)
 def get_branches():
     try:
         branches = Branch.query.all()
+        enriched = []
+        for b in branches:
+            item = b.to_dict()
+            total_rooms = Room.query.filter_by(branch_id=b.branch_id).count()
+            available_rooms = Room.query.filter_by(branch_id=b.branch_id, is_available=True).count()
+            item['total_rooms'] = total_rooms
+            item['available_rooms'] = available_rooms
+            item['status'] = 'Hoạt động' if total_rooms > 0 else 'Tạm đóng'
+            enriched.append(item)
         return jsonify({
-            'branches': [branch.to_dict() for branch in branches],
-            'total': len(branches)
+            'branches': enriched,
+            'total': len(enriched)
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -43,7 +52,13 @@ def create_branch():
 def get_branch(branch_id):
     try:
         branch = Branch.query.get_or_404(branch_id)
-        return jsonify(branch.to_dict())
+        item = branch.to_dict()
+        total_rooms = Room.query.filter_by(branch_id=branch_id).count()
+        available_rooms = Room.query.filter_by(branch_id=branch_id, is_available=True).count()
+        item['total_rooms'] = total_rooms
+        item['available_rooms'] = available_rooms
+        item['status'] = 'Hoạt động' if total_rooms > 0 else 'Tạm đóng'
+        return jsonify(item)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
